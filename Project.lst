@@ -1,0 +1,1282 @@
+Microsoft (R) Macro Assembler Version 14.00.23506.0	    06/28/17 02:05:12
+main.asm						     Page 1 - 1
+
+
+
+
+				include externs.inc
+			      C include Irvine32.inc
+			      C ; Include file for Irvine32.lib             (Irvine32.inc)
+			      C 
+			      C ;OPTION CASEMAP:NONE		; optional: make identifiers case-sensitive
+			      C 
+			      C INCLUDE SmallWin.inc		; MS-Windows prototypes, structures, and constants
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C INCLUDE VirtualKeys.inc
+			      C ; VirtualKeys.inc
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C 
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C 
+			      C ;------------------------------SHAPE PROTOS---------------------------
+			      C InitShape PROTO STDCALL orgShp:PTR POINT, destShp:PTR POINT
+			      C 
+			      C PointsToCoords PROTO STDCALL points:PTR POINT, coords:PTR COORD, center:COORD
+			      C 
+			      C ROTL PROTO STDCALL points:PTR POINT, coords:PTR COORD, center:COORD, table:PTR BYTE
+			      C 
+			      C DrawShape PROTO STDCALL coords:PTR COORD, hnd:DWORD, poc:COORD
+			      C 
+			      C DeleteShape PROTO STDCALL coords:PTR COORD, hnd:DWORD, poc:COORD
+			      C 
+			      C ;------------------------------crtanje PROTOS---------------------------
+			      C 
+			      C Draw PROTO STDCALL bafer: PTR BYTE, pocKoord: COORD, hnd:DWORD, vrste:DWORD, kolone:DWORD
+			      C 
+			      C Delete PROTO STDCALL pocKoord: COORD, hnd:DWORD, vrste:DWORD, kolone:DWORD
+			      C 
+			      C ;------------------------------GameLogic PROTOS---------------------------
+			      C 
+			      C ClearLines PROTO STDCALL table:PTR BYTE, top:DWORD
+			      C 
+			      C Table2Graphics PROTO STDCALL table:PTR BYTE, graphT:PTR BYTE
+			      C 
+			      C Transfer2Table PROTO STDCALL coords:PTR COORD, table:PTR BYTE
+			      C 
+			      C ColisionLeft PROTO STDCALL coords: PTR COORD
+			      C ColisionRight PROTO STDCALL coords: PTR COORD
+			      C ColisionBottom PROTO STDCALL coords: PTR COORD
+			      C ColisionHit PROTO STDCALL table:PTR BYTE, coords:PTR COORD
+			      C OutOfBounds PROTO STDCALL coords:PTR COORD
+			      C 
+			      C MoveLeft PROTO STDCALL objCent: PTR COORD, coords:PTR COORD, points:PTR POINT, table:PTR BYTE
+			      C MoveRight PROTO STDCALL objCent: PTR COORD, coords:PTR COORD, points:PTR POINT, table:PTR BYTE
+			      C MoveDown PROTO STDCALL objCent: PTR COORD, coords:PTR COORD, points:PTR POINT, table:PTR BYTE
+			      C 
+			      C BottomStop PROTO STDCALL table:PTR BYTE, coords:PTR COORD
+			      C GameEnd PROTO STDCALL coords:PTR COORD
+			      C 
+			      C 
+			      C InitTable PROTO STDCALL table:PTR BYTE
+			      C 
+ 00000004		      C POINT STRUCT
+ 00000000  0000		      C 	x SWORD ?
+ 00000002  0000		      C 	y SWORD ?
+			      C POINT ENDS
+			      C 
+			      C ;--------------golobalne konstante---------------------
+			      C ;KEY CODES IN AH
+ = 00000048		      C UP_ARROW EQU  48h
+ = 00000050		      C DOWN_ARROW EQU 50h
+ = 0000004B		      C LEFT_ARROW EQU 4Bh
+ = 0000004D		      C RIGHT_ARROW EQU 4Dh
+ = 00000001		      C ESC_KEY EQU 1h
+ = 0000001C		      C ENTER_KEY EQU 1Ch
+			      C ;
+ = 0000000A		      C TEREN_WIDTH EQU 10
+ = 00000016		      C TEREN_HEIGHT EQU 22
+			      C 
+			      C 
+			      C 
+			      C ;-------------makroi-----------------------------------
+			      C 
+			      C 
+			      C MoveCoord MACRO source, dest
+			      C 	
+			      C ENDM
+			      C 
+			      C AddCoord MACRO source, dest
+			      C 	
+			      C ENDM
+			      C 
+			      C SubCoord MACRO source, dest
+			      C 	
+			      C ENDM
+			      C 
+
+ 00000000			.data
+
+ 00000000  000000DC [		tabela BYTE 220 DUP(0)
+	    00
+	   ]
+ 000000DC  000000DC [		tabelaG BYTE 220 DUP(?)
+	    00
+	   ]
+
+ 000001B8 000B 0002		pocKoord COORD <11,2>
+ 000001BC 000C 0003		pocKoord1 COORD <12,3>
+
+ 000001C0 50 52 45 53 53	prompt BYTE "PRESS ENTER TO START/ESC TO QUIT...",0
+	   20 45 4E 54 45
+	   52 20 54 4F 20
+	   53 54 41 52 54
+	   2F 45 53 43 20
+	   54 4F 20 51 55
+	   49 54 2E 2E 2E
+	   00
+ 000001E4 50 52 45 53 53	prompt2 BYTE "PRESS ANY KEY TO CONTINUE...",0
+	   20 41 4E 59 20
+	   4B 45 59 20 54
+	   4F 20 43 4F 4E
+	   54 49 4E 55 45
+	   2E 2E 2E 00
+ 00000201 0001 0019		promptK2 COORD <1,25>
+ 00000205 0001 0001		introK COORD <1,1>
+ 00000209 0001 0007		introK2 COORD <1,7>
+ 0000020D B2 B1 B2 B0 FE	intro	BYTE 178,177,178,176,254, 32,178,254,254,178, 32,178,176,178,178,254, 32,178,176,176, 32, 32,254,254,177, 32, 32, 32,178,254,176,178
+	   20 B2 FE FE B2
+	   20 B2 B0 B2 B2
+	   FE 20 B2 B0 B0
+	   20 20 FE FE B1
+	   20 20 20 B2 FE
+	   B0 B2
+ 0000022D  20 20 B2 20 20			BYTE  32, 32,178, 32, 32, 32,176, 32, 32, 32, 32, 32, 32,254, 32, 32, 32,177, 32, 32,178, 32, 32,178, 32, 32, 32,178, 32, 32, 32, 32
+	   20 B0 20 20 20
+	   20 20 20 FE 20
+	   20 20 B1 20 20
+	   B2 20 20 B2 20
+	   20 20 B2 20 20
+	   20 20
+ 0000024D  20 20 B0 20 20			BYTE  32, 32,176, 32, 32, 32,176,177,254, 32, 32, 32, 32,254, 32, 32, 32,177,254,177, 32, 32, 32,176, 32, 32, 32, 32,176,178,254, 32
+	   20 B0 B1 FE 20
+	   20 20 20 FE 20
+	   20 20 B1 FE B1
+	   20 20 20 B0 20
+	   20 20 20 B0 B2
+	   FE 20
+ 0000026D  20 20 B2 20 20			BYTE  32, 32,178, 32, 32, 32,178, 32, 32, 32, 32, 32, 32,178, 32, 32, 32,176, 32,254, 32, 32, 32,177, 32, 32, 32, 32, 32, 32, 32,254
+	   20 B2 20 20 20
+	   20 20 20 B2 20
+	   20 20 B0 20 FE
+	   20 20 20 B1 20
+	   20 20 20 20 20
+	   20 FE
+ 0000028D  20 20 FE 20 20			BYTE  32, 32,254, 32, 32, 32,177,177,254,178, 32, 32, 32,178, 32, 32, 32,254, 32, 32,177, 32,178,176,178, 32, 32,178,176,254,178, 32
+	   20 B1 B1 FE B2
+	   20 20 20 B2 20
+	   20 20 FE 20 20
+	   B1 20 B2 B0 B2
+	   20 20 B2 B0 FE
+	   B2 20
+						;5X32
+
+ 000002AD C9 CD CD CD CD	teren	BYTE 201,205,205,205,205,205,205,205,205,205,205,187; 22x12
+	   CD CD CD CD CD
+	   CD BB
+ 000002B9  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000002C5  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000002D1  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000002DD  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000002E9  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000002F5  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000301  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 0000030D  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000319  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000325  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000331  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 0000033D  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000349  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000355  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000361  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 0000036D  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000379  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000385  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000391  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 0000039D  BA 20 20 20 20			BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000003A9  C8 CD CD CD CD			BYTE 200,205,205,205,205,205,205,205,205,205,205,188
+	   CD CD CD CD CD
+	   CD BC
+
+ 000003B5 0019 0002		scoreK1 COORD <25,2>
+ 000003B9 001A 0005		scoreK2 COORD <26,5>
+ 000003BD 00000000		rez DWORD ?
+ 000003C1 C9 CD CD CD CD	score BYTE 201,205,205,205,205,205,205,205,205,205,205,187	;8x12
+	   CD CD CD CD CD
+	   CD BB
+ 000003CD  BA 53 43 4F 52		  BYTE 186, 83, 67, 79, 82, 69, 58,' ',' ',' ',' ',186
+	   45 3A 20 20 20
+	   20 BA
+ 000003D9  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000003E5  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000003F1  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 000003FD  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000409  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',186
+	   20 20 20 20 20
+	   20 BA
+ 00000415  C8 CD CD CD CD		  BYTE 200,205,205,205,205,205,205,205,205,205,205,188
+	   CD CD CD CD CD
+	   CD BC
+
+ 00000421 0001 0002		buduciK COORD <1,2>
+ 00000425 C9 CD CD CD CD	buduci BYTE 201,205,205,205,205,205,205,187	;8x8
+	   CD CD BB
+ 0000042D  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 00000435  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 0000043D  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 00000445  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 0000044D  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 00000455  BA 20 20 20 20		  BYTE 186,' ',' ',' ',' ',' ',' ',186
+	   20 20 BA
+ 0000045D  C8 CD CD CD CD		  BYTE 200,205,205,205,205,205,205,188
+	   CD CD BC
+
+ 00000465 FFFD 0000 FFFF	Ishape POINT <-3,0>,<-1,0>,<1,0>,<3,0>
+	   0000 0001 0000
+	   0003 0000
+ 00000475 FFFF FFFE FFFF	Zshape POINT <-1,-2>,<-1,0>,<1,0>,<1,2>
+	   0000 0001 0000
+	   0001 0002
+ 00000485 0001 FFFE 0001	Sshape POINT <1,-2>,<1,0>,<-1,0>,<-1,2>
+	   0000 FFFF 0000
+	   FFFF 0002
+ 00000495 0000 0002 0000	Lshape POINT <0,2>,<0,0>,<0,-2>,<2,-2>
+	   0000 0000 FFFE
+	   0002 FFFE
+ 000004A5 0000 0002 0000	Jshape POINT <0,2>,<0,0>,<0,-2>,<-2,-2>
+	   0000 0000 FFFE
+	   FFFE FFFE
+ 000004B5 FFFE 0000 0000	Tshape POINT <-2,0>,<0,0>,<2,0>,<0,2>
+	   0000 0002 0000
+	   0000 0002
+ 000004C5 FFFF FFFF FFFF	Oshape POINT <-1,-1>,<-1,1>,<1,1>,<1,-1>
+	   0001 0001 0001
+	   0001 FFFF
+
+
+ = OFFSET Ishape		sADDR EQU OFFSET Ishape
+
+ 000004D5  00000004 [		gObjX2 POINT 4 DUP(<>)
+	    0000 0000
+	   ]
+ 000004E5  00000004 [		gObj COORD 4 DUP(<>)
+	    0000 0000
+	   ]
+ 000004F5 0005 FFFE		gObjCenter COORD <5,-2>
+
+ 000004F9  00000004 [		gObjBuduciX2 POINT 4 DUP(<>)
+	    0000 0000
+	   ]
+ 00000509  00000004 [		gObjBuduci COORD 4 DUP(<>)
+	    0000 0000
+	   ]
+ 00000519 0004 0004		gObjCenterB COORD <4,4>
+
+ 0000051D 00000000		consHandle DWORD ?
+ 00000521 00000000		cInfo CONSOLE_CURSOR_INFO <>
+	   00000000
+
+ 00000529 00000000		ranNum DWORD ?
+
+
+
+ 0000052D  000001F4 [		clear BYTE 500 DUP(' '),0
+	    20
+	   ] 00
+
+
+ 00000722 00000000		time DWORD 0
+ = 000003E8			Tick=1000
+
+ 00000000			.code
+ 00000000			main proc			
+					INVOKE GetStdHandle, STD_OUTPUT_HANDLE
+ 00000000  6A F5	   *	    push    -00000000Bh
+ 00000002  E8 00000000 E   *	    call   GetStdHandle
+ 00000007  A3 0000051D R		mov consHandle, EAX
+
+					INVOKE GetConsoleCursorInfo, consHandle,ADDR cInfo
+ 0000000C  68 00000521 R   *	    push   OFFSET cInfo
+ 00000011  FF 35 0000051D R *	    push   consHandle
+ 00000017  E8 00000000 E   *	    call   GetConsoleCursorInfo
+ 0000001C  B8 00000000			mov eax,0
+ 00000021  A3 00000525 R		mov cInfo.bVisible,eax
+					INVOKE SetConsoleCursorInfo, consHandle, ADDR cInfo
+ 00000026  68 00000521 R   *	    push   OFFSET cInfo
+ 0000002B  FF 35 0000051D R *	    push   consHandle
+ 00000031  E8 00000000 E   *	    call   SetConsoleCursorInfo
+
+
+
+					;---------------------intro-------------------------
+ 00000036			introLabel:
+ 00000036  E8 00000000 E		call Clrscr
+					INVOKE Draw, ADDR intro, introK, consHandle, 5, 32
+ 0000003B  6A 20	   *	    push   +000000020h
+ 0000003D  6A 05	   *	    push   +000000005h
+ 0000003F  FF 35 0000051D R *	    push   consHandle
+ 00000045  FF 35 00000205 R *	    push   dword  ptr introK
+ 0000004B  68 0000020D R   *	    push   OFFSET intro
+ 00000050  E8 00000000 E   *	    call   Draw
+					INVOKE SetConsoleCursorPosition, consHandle, introK2
+ 00000055  FF 35 00000209 R *	    push   dword  ptr introK2
+ 0000005B  FF 35 0000051D R *	    push   consHandle
+ 00000061  E8 00000000 E   *	    call   SetConsoleCursorPosition
+ 00000066  BA 000001C0 R		mov  edx,OFFSET prompt
+ 0000006B  E8 00000000 E	    call WriteString
+ 00000070			w1:
+ 00000070  B8 00000014			mov eax,20				;wait 20ms
+ 00000075  E8 00000000 E		call Delay
+ 0000007A  E8 00000000 E		call ReadKey			; look for keyboard input
+					
+ 0000007F  80 FC 1C			cmp ah,ENTER_KEY
+ 00000082  74 0B			jz newGame
+ 00000084  80 FC 01			cmp ah,ESC_KEY
+ 00000087  0F 84 000004A4		jz izl
+ 0000008D  EB E1			jmp w1
+
+					;---------------------Iscrtavanje terena----------------------------
+ 0000008F			newGame:
+					
+					INVOKE InitTable,ADDR tabela
+ 0000008F  68 00000000 R   *	    push   OFFSET tabela
+ 00000094  E8 00000000 E   *	    call   InitTable
+ 00000099  B8 00000005			mov eax,5
+ 0000009E  66| A3			mov gObjCenter.x,ax
+	   000004F5 R
+ 000000A4  B8 FFFFFFFE			mov eax,-2
+ 000000A9  66| A3			mov gObjCenter.y,ax
+	   000004F7 R
+
+ 000000AF  E8 00000000 E		call Clrscr
+					INVOKE Draw, ADDR teren, pocKoord, consHandle, 22, 12
+ 000000B4  6A 0C	   *	    push   +00000000Ch
+ 000000B6  6A 16	   *	    push   +000000016h
+ 000000B8  FF 35 0000051D R *	    push   consHandle
+ 000000BE  FF 35 000001B8 R *	    push   dword  ptr pocKoord
+ 000000C4  68 000002AD R   *	    push   OFFSET teren
+ 000000C9  E8 00000000 E   *	    call   Draw
+					INVOKE Draw, ADDR buduci, buduciK, consHandle, 8, 8
+ 000000CE  6A 08	   *	    push   +000000008h
+ 000000D0  6A 08	   *	    push   +000000008h
+ 000000D2  FF 35 0000051D R *	    push   consHandle
+ 000000D8  FF 35 00000421 R *	    push   dword  ptr buduciK
+ 000000DE  68 00000425 R   *	    push   OFFSET buduci
+ 000000E3  E8 00000000 E   *	    call   Draw
+
+					;---------------------Inicijacija Scora---------------------------------
+					INVOKE Draw, ADDR score, scoreK1, consHandle, 8, 12
+ 000000E8  6A 0C	   *	    push   +00000000Ch
+ 000000EA  6A 08	   *	    push   +000000008h
+ 000000EC  FF 35 0000051D R *	    push   consHandle
+ 000000F2  FF 35 000003B5 R *	    push   dword  ptr scoreK1
+ 000000F8  68 000003C1 R   *	    push   OFFSET score
+ 000000FD  E8 00000000 E   *	    call   Draw
+ 00000102  B8 00000000			mov eax,0
+ 00000107  A3 000003BD R		mov rez,eax
+					INVOKE SetConsoleCursorPosition, consHandle, scoreK2
+ 0000010C  FF 35 000003B9 R *	    push   dword  ptr scoreK2
+ 00000112  FF 35 0000051D R *	    push   consHandle
+ 00000118  E8 00000000 E   *	    call   SetConsoleCursorPosition
+ 0000011D  A1 000003BD R		mov eax,rez
+ 00000122  E8 00000000 E		call WriteInt
+					;----------------------Inicijalizacija prvog oblika------------------------
+					;call Randomize zabada funkcija
+ 00000127  B8 00000007			mov eax,7;		;prvi shape
+ 0000012C  E8 00000000 E		call RandomRange ;
+ 00000131  C1 E0 04			sal eax,4
+ 00000134  05 00000465 R		add eax, sADDR
+ 00000139  A3 00000529 R		mov  ranNum,eax
+					INVOKE InitShape, ranNum, ADDR gObjX2
+ 0000013E  68 000004D5 R   *	    push   OFFSET gObjX2
+ 00000143  FF 35 00000529 R *	    push   ranNum
+ 00000149  E8 00000000 E   *	    call   InitShape
+					INVOKE PointsToCoords, ADDR gObjX2, ADDR gObj, gObjCenter
+ 0000014E  FF 35 000004F5 R *	    push   dword  ptr gObjCenter
+ 00000154  68 000004E5 R   *	    push   OFFSET gObj
+ 00000159  68 000004D5 R   *	    push   OFFSET gObjX2
+ 0000015E  E8 00000000 E   *	    call   PointsToCoords
+
+					;----------------------Inicijalizacija buduceg oblika--------------------
+ 00000163  B8 00000007			mov eax,7;		;prvi shape
+ 00000168  E8 00000000 E		call RandomRange ;
+ 0000016D  C1 E0 04			sal eax,4
+ 00000170  05 00000465 R		add eax, sADDR
+ 00000175  A3 00000529 R		mov  ranNum,eax
+					INVOKE InitShape, ranNum, ADDR gObjBuduciX2
+ 0000017A  68 000004F9 R   *	    push   OFFSET gObjBuduciX2
+ 0000017F  FF 35 00000529 R *	    push   ranNum
+ 00000185  E8 00000000 E   *	    call   InitShape
+					INVOKE PointsToCoords, ADDR gObjBuduciX2, ADDR gObjBuduci, gObjCenterB
+ 0000018A  FF 35 00000519 R *	    push   dword  ptr gObjCenterB
+ 00000190  68 00000509 R   *	    push   OFFSET gObjBuduci
+ 00000195  68 000004F9 R   *	    push   OFFSET gObjBuduciX2
+ 0000019A  E8 00000000 E   *	    call   PointsToCoords
+					INVOKE DrawShape, ADDR gObjBuduci, consHandle, buduciK
+ 0000019F  FF 35 00000421 R *	    push   dword  ptr buduciK
+ 000001A5  FF 35 0000051D R *	    push   consHandle
+ 000001AB  68 00000509 R   *	    push   OFFSET gObjBuduci
+ 000001B0  E8 00000000 E   *	    call   DrawShape
+
+ 000001B5  E9 0000018C			jmp start
+					
+					;INVOKE Draw, ADDR intro, pocKoord, consHandle, 5, 32
+					;invoke Delete, pocKoord, consHandle, 22, 11
+					;INVOKE Table2Graphics,ADDR tabela, ADDR tabelaG
+					INVOKE Draw, ADDR tabelaG+20, pocKoord1, consHandle, 20, 10
+ 000001BA  6A 0A	   *	    push   +00000000Ah
+ 000001BC  6A 14	   *	    push   +000000014h
+ 000001BE  FF 35 0000051D R *	    push   consHandle
+ 000001C4  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 000001CA  68 000000F0 R   *	    push   OFFSET tabelaG+000000014h
+ 000001CF  E8 00000000 E   *	    call   Draw
+					;INVOKE Transfer2Table,ADDR gObj,ADDR tabela
+					;INVOKE ClearLines, ADDR tabela, 20
+
+					INVOKE Table2Graphics,ADDR tabela, ADDR tabelaG
+ 000001D4  68 000000DC R   *	    push   OFFSET tabelaG
+ 000001D9  68 00000000 R   *	    push   OFFSET tabela
+ 000001DE  E8 00000000 E   *	    call   Table2Graphics
+					INVOKE Draw, ADDR tabelaG+20, pocKoord1, consHandle, 20, 10
+ 000001E3  6A 0A	   *	    push   +00000000Ah
+ 000001E5  6A 14	   *	    push   +000000014h
+ 000001E7  FF 35 0000051D R *	    push   consHandle
+ 000001ED  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 000001F3  68 000000F0 R   *	    push   OFFSET tabelaG+000000014h
+ 000001F8  E8 00000000 E   *	    call   Draw
+
+ 000001FD			newShape:
+					INVOKE Transfer2Table,ADDR gObj,ADDR tabela
+ 000001FD  68 00000000 R   *	    push   OFFSET tabela
+ 00000202  68 000004E5 R   *	    push   OFFSET gObj
+ 00000207  E8 00000000 E   *	    call   Transfer2Table
+					INVOKE ClearLines, ADDR tabela, 0
+ 0000020C  6A 00	   *	    push   +000000000h
+ 0000020E  68 00000000 R   *	    push   OFFSET tabela
+ 00000213  E8 00000000 E   *	    call   ClearLines
+					;score++
+ 00000218  03 05 000003BD R		add eax,rez
+ 0000021E  A3 000003BD R		mov rez,eax
+					INVOKE SetConsoleCursorPosition, consHandle, scoreK2
+ 00000223  FF 35 000003B9 R *	    push   dword  ptr scoreK2
+ 00000229  FF 35 0000051D R *	    push   consHandle
+ 0000022F  E8 00000000 E   *	    call   SetConsoleCursorPosition
+ 00000234  A1 000003BD R		mov eax,rez
+ 00000239  E8 00000000 E		call WriteInt
+						;crtanje tabele
+					INVOKE Table2Graphics,ADDR tabela, ADDR tabelaG
+ 0000023E  68 000000DC R   *	    push   OFFSET tabelaG
+ 00000243  68 00000000 R   *	    push   OFFSET tabela
+ 00000248  E8 00000000 E   *	    call   Table2Graphics
+					INVOKE Draw, ADDR tabelaG+20, pocKoord1, consHandle, 20, 10
+ 0000024D  6A 0A	   *	    push   +00000000Ah
+ 0000024F  6A 14	   *	    push   +000000014h
+ 00000251  FF 35 0000051D R *	    push   consHandle
+ 00000257  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 0000025D  68 000000F0 R   *	    push   OFFSET tabelaG+000000014h
+ 00000262  E8 00000000 E   *	    call   Draw
+
+ 00000267  B8 00000005			mov eax,5
+ 0000026C  66| A3			mov gObjCenter.x,ax
+	   000004F5 R
+ 00000272  B8 FFFFFFFE			mov eax,-2
+ 00000277  66| A3			mov gObjCenter.y,ax
+	   000004F7 R
+
+					INVOKE InitShape, ADDR gObjBuduciX2, ADDR gobjX2
+ 0000027D  68 000004D5 R   *	    push   OFFSET gObjX2
+ 00000282  68 000004F9 R   *	    push   OFFSET gObjBuduciX2
+ 00000287  E8 00000000 E   *	    call   InitShape
+					;----------------------Inicijalizacija buduceg oblika--------------------
+ 0000028C  B8 00000007			mov eax,7;		;prvi shape
+ 00000291  E8 00000000 E		call RandomRange ;
+ 00000296  C1 E0 04			sal eax,4
+ 00000299  05 00000465 R		add eax, sADDR
+ 0000029E  A3 00000529 R		mov  ranNum,eax
+					INVOKE DeleteSHAPE, ADDR gObjBuduci, consHandle, buduciK
+ 000002A3  FF 35 00000421 R *	    push   dword  ptr buduciK
+ 000002A9  FF 35 0000051D R *	    push   consHandle
+ 000002AF  68 00000509 R   *	    push   OFFSET gObjBuduci
+ 000002B4  E8 00000000 E   *	    call   DeleteShape
+					INVOKE InitShape, ranNum, ADDR gObjBuduciX2
+ 000002B9  68 000004F9 R   *	    push   OFFSET gObjBuduciX2
+ 000002BE  FF 35 00000529 R *	    push   ranNum
+ 000002C4  E8 00000000 E   *	    call   InitShape
+					INVOKE PointsToCoords, ADDR gObjBuduciX2, ADDR gObjBuduci, gObjCenterB
+ 000002C9  FF 35 00000519 R *	    push   dword  ptr gObjCenterB
+ 000002CF  68 00000509 R   *	    push   OFFSET gObjBuduci
+ 000002D4  68 000004F9 R   *	    push   OFFSET gObjBuduciX2
+ 000002D9  E8 00000000 E   *	    call   PointsToCoords
+					INVOKE DrawShape, ADDR gObjBuduci, consHandle, buduciK
+ 000002DE  FF 35 00000421 R *	    push   dword  ptr buduciK
+ 000002E4  FF 35 0000051D R *	    push   consHandle
+ 000002EA  68 00000509 R   *	    push   OFFSET gObjBuduci
+ 000002EF  E8 00000000 E   *	    call   DrawShape
+ 000002F4  EB 50			jmp start
+
+ 000002F6			timer:
+					
+
+					INVOKE BottomStop, ADDR tabela, ADDR gObj
+ 000002F6  68 000004E5 R   *	    push   OFFSET gObj
+ 000002FB  68 00000000 R   *	    push   OFFSET tabela
+ 00000300  E8 00000000 E   *	    call   BottomStop
+ 00000305  83 F8 00			cmp eax,0
+ 00000308  74 18			jz skip
+ 0000030A			lbl:
+					INVOKE GameEnd, ADDR gObj
+ 0000030A  68 000004E5 R   *	    push   OFFSET gObj
+ 0000030F  E8 00000000 E   *	    call   GameEnd
+ 00000314  83 F8 00			cmp eax,0
+ 00000317  0F 85 000001E3		jnz kraj
+ 0000031D  E9 FFFFFEDB			jmp newShape
+ 00000322			skip:
+					;crtanje oblika
+					INVOKE DeleteSHAPE, ADDR gObj, consHandle, pocKoord1
+ 00000322  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 00000328  FF 35 0000051D R *	    push   consHandle
+ 0000032E  68 000004E5 R   *	    push   OFFSET gObj
+ 00000333  E8 00000000 E   *	    call   DeleteShape
+ 00000338  66| A1			mov ax,gObjCenter.y
+	   000004F7 R
+ 0000033E  66| 40			inc ax
+ 00000340  66| A3			mov gObjCenter.y,ax
+	   000004F7 R
+ 00000346			start:
+					INVOKE PointsToCoords, ADDR gObjX2, ADDR gObj, gObjCenter
+ 00000346  FF 35 000004F5 R *	    push   dword  ptr gObjCenter
+ 0000034C  68 000004E5 R   *	    push   OFFSET gObj
+ 00000351  68 000004D5 R   *	    push   OFFSET gObjX2
+ 00000356  E8 00000000 E   *	    call   PointsToCoords
+					INVOKE DrawShape, ADDR gObj, consHandle, pocKoord1
+ 0000035B  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 00000361  FF 35 0000051D R *	    push   consHandle
+ 00000367  68 000004E5 R   *	    push   OFFSET gObj
+ 0000036C  E8 00000000 E   *	    call   DrawShape
+
+ 00000371			waiting:
+
+				;-----------------------input resovling----------------------
+ 00000371  B8 00000014			mov eax,20				;wait 20ms
+ 00000376  E8 00000000 E		call Delay
+ 0000037B  E8 00000000 E		call ReadKey			; look for keyboard input
+ 00000380  0F 84 00000157	    jz   NoKey				; no key pressed yet
+					
+ 00000386  80 FC 48			cmp ah,UP_ARROW
+ 00000389  74 25			jz up
+ 0000038B  80 FC 50			cmp ah,DOWN_ARROW
+ 0000038E  74 55			jz down
+ 00000390  80 FC 4B			cmp ah,LEFT_ARROW
+ 00000393  0F 84 00000099		jz left
+ 00000399  80 FC 4D			cmp ah,RIGHT_ARROW
+ 0000039C  0F 84 000000D1		jz right
+ 000003A2  80 FC 01			cmp ah,ESC_KEY
+ 000003A5  0F 84 FFFFFC8B		jz introLabel
+ 000003AB  E9 0000012D			jmp NoKey				;wrong key go to nokey
+
+ 000003B0			up:
+					INVOKE DeleteSHAPE, ADDR gObj, consHandle, pocKoord1
+ 000003B0  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 000003B6  FF 35 0000051D R *	    push   consHandle
+ 000003BC  68 000004E5 R   *	    push   OFFSET gObj
+ 000003C1  E8 00000000 E   *	    call   DeleteShape
+					INVOKE ROTL, ADDR gObjX2, ADDR gObj, gObjCenter,ADDR tabela
+ 000003C6  68 00000000 R   *	    push   OFFSET tabela
+ 000003CB  FF 35 000004F5 R *	    push   dword  ptr gObjCenter
+ 000003D1  68 000004E5 R   *	    push   OFFSET gObj
+ 000003D6  68 000004D5 R   *	    push   OFFSET gObjX2
+ 000003DB  E8 00000000 E   *	    call   ROTL
+ 000003E0  E9 000000CD			jmp keyFound	
+					
+ 000003E5			down:
+					;check can move down
+					INVOKE ColisionBottom, ADDR gObj
+ 000003E5  68 000004E5 R   *	    push   OFFSET gObj
+ 000003EA  E8 00000000 E   *	    call   ColisionBottom
+ 000003EF  0F 84 000000E8		jz NoKey
+
+					INVOKE DeleteSHAPE, ADDR gObj, consHandle, pocKoord1
+ 000003F5  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 000003FB  FF 35 0000051D R *	    push   consHandle
+ 00000401  68 000004E5 R   *	    push   OFFSET gObj
+ 00000406  E8 00000000 E   *	    call   DeleteShape
+					INVOKE MoveDown, ADDR gObjCenter, ADDR gObj, ADDR gObjX2, ADDR tabela
+ 0000040B  68 00000000 R   *	    push   OFFSET tabela
+ 00000410  68 000004D5 R   *	    push   OFFSET gObjX2
+ 00000415  68 000004E5 R   *	    push   OFFSET gObj
+ 0000041A  68 000004F5 R   *	    push   OFFSET gObjCenter
+ 0000041F  E8 00000000 E   *	    call   MoveDown
+ 00000424  83 F8 00			cmp eax,0
+ 00000427  0F 85 FFFFFEDD		jnz lbl
+ 0000042D  E9 00000080			jmp keyFound	
+ 00000432			left:
+					; check can move left
+					INVOKE ColisionLeft, ADDR gObj
+ 00000432  68 000004E5 R   *	    push   OFFSET gObj
+ 00000437  E8 00000000 E   *	    call   ColisionLeft
+ 0000043C  0F 84 0000009B		jz NoKey
+
+					INVOKE DeleteSHAPE, ADDR gObj, consHandle, pocKoord1
+ 00000442  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 00000448  FF 35 0000051D R *	    push   consHandle
+ 0000044E  68 000004E5 R   *	    push   OFFSET gObj
+ 00000453  E8 00000000 E   *	    call   DeleteShape
+					INVOKE MoveLeft, ADDR gObjCenter, ADDR gObj, ADDR gObjX2, ADDR tabela
+ 00000458  68 00000000 R   *	    push   OFFSET tabela
+ 0000045D  68 000004D5 R   *	    push   OFFSET gObjX2
+ 00000462  68 000004E5 R   *	    push   OFFSET gObj
+ 00000467  68 000004F5 R   *	    push   OFFSET gObjCenter
+ 0000046C  E8 00000000 E   *	    call   MoveLeft
+ 00000471  EB 3F			jmp keyFound
+
+ 00000473			right:
+					; check can move right
+					INVOKE ColisionRight, ADDR gObj
+ 00000473  68 000004E5 R   *	    push   OFFSET gObj
+ 00000478  E8 00000000 E   *	    call   ColisionRight
+ 0000047D  74 5E			jz NoKey
+					
+					INVOKE DeleteSHAPE, ADDR gObj, consHandle, pocKoord1
+ 0000047F  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 00000485  FF 35 0000051D R *	    push   consHandle
+ 0000048B  68 000004E5 R   *	    push   OFFSET gObj
+ 00000490  E8 00000000 E   *	    call   DeleteShape
+					INVOKE MoveRight, ADDR gObjCenter, ADDR gObj, ADDR gObjX2, ADDR tabela
+ 00000495  68 00000000 R   *	    push   OFFSET tabela
+ 0000049A  68 000004D5 R   *	    push   OFFSET gObjX2
+ 0000049F  68 000004E5 R   *	    push   OFFSET gObj
+ 000004A4  68 000004F5 R   *	    push   OFFSET gObjCenter
+ 000004A9  E8 00000000 E   *	    call   MoveRight
+ 000004AE  EB 02			jmp keyFound
+					
+ 000004B0  EB 2B			jmp NoKey		;wrong key
+ 000004B2			keyFound:
+					INVOKE PointsToCoords, ADDR gObjX2, ADDR gObj, gObjCenter
+ 000004B2  FF 35 000004F5 R *	    push   dword  ptr gObjCenter
+ 000004B8  68 000004E5 R   *	    push   OFFSET gObj
+ 000004BD  68 000004D5 R   *	    push   OFFSET gObjX2
+ 000004C2  E8 00000000 E   *	    call   PointsToCoords
+					INVOKE DrawShape, ADDR gObj, consHandle, pocKoord1
+ 000004C7  FF 35 000001BC R *	    push   dword  ptr pocKoord1
+ 000004CD  FF 35 0000051D R *	    push   consHandle
+ 000004D3  68 000004E5 R   *	    push   OFFSET gObj
+ 000004D8  E8 00000000 E   *	    call   DrawShape
+ 000004DD			NoKey:
+					
+
+
+				;------------timeing logic------------------
+ 000004DD  E8 00000000 E		call GetTickCount
+ 000004E2  8B D8			mov ebx,eax
+ 000004E4  2B 05 00000722 R		sub eax,time
+ 000004EA  3D 000003E8			cmp eax,Tick
+ 000004EF  0F 82 FFFFFE7C		JB waiting
+ 000004F5  89 1D 00000722 R		mov time,ebx
+ 000004FB  E9 FFFFFDF6			jmp timer
+
+ 00000500			kraj:
+					INVOKE SetConsoleCursorPosition, consHandle, promptK2
+ 00000500  FF 35 00000201 R *	    push   dword  ptr promptK2
+ 00000506  FF 35 0000051D R *	    push   consHandle
+ 0000050C  E8 00000000 E   *	    call   SetConsoleCursorPosition
+ 00000511  BA 000001E4 R		mov  edx,OFFSET prompt2
+ 00000516  E8 00000000 E	    call WriteString
+ 0000051B			w2:
+ 0000051B  B8 00000014			mov eax,20				;wait 20ms
+ 00000520  E8 00000000 E		call Delay
+ 00000525  E8 00000000 E		call ReadKey	
+ 0000052A  74 EF			jz w2
+ 0000052C  E9 FFFFFB05			jmp introLabel
+
+ 00000531			izl:
+					invoke ExitProcess,0
+ 00000531  6A 00	   *	    push   +000000000h
+ 00000533  E8 00000000 E   *	    call   ExitProcess
+ 00000538			main endp
+				end 
+Microsoft (R) Macro Assembler Version 14.00.23506.0	    06/28/17 02:05:12
+main.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+AddCoord . . . . . . . . . . . .	Proc
+MoveCoord  . . . . . . . . . . .	Proc
+SubCoord . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+CONSOLE_CURSOR_INFO  . . . . . .	 00000008
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  bVisible . . . . . . . . . . .	 00000004	 DWord
+CONSOLE_SCREEN_BUFFER_INFO . . .	 00000016
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCursorPosition . . . . . . .	 00000004	 DWord
+  wAttributes  . . . . . . . . .	 00000008	 Word
+  srWindow . . . . . . . . . . .	 0000000A	 QWord
+  dwMaximumWindowSize  . . . . .	 00000012	 DWord
+COORD  . . . . . . . . . . . . .	 00000004
+  X  . . . . . . . . . . . . . .	 00000000	 Word
+  Y  . . . . . . . . . . . . . .	 00000002	 Word
+FILETIME . . . . . . . . . . . .	 00000008
+  loDateTime . . . . . . . . . .	 00000000	 DWord
+  hiDateTime . . . . . . . . . .	 00000004	 DWord
+FOCUS_EVENT_RECORD . . . . . . .	 00000004
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+FPU_ENVIRON  . . . . . . . . . .	 0000001C
+  controlWord  . . . . . . . . .	 00000000	 Word
+  statusWord . . . . . . . . . .	 00000004	 Word
+  tagWord  . . . . . . . . . . .	 00000008	 Word
+  instrPointerOffset . . . . . .	 0000000C	 DWord
+  instrPointerSelector . . . . .	 00000010	 DWord
+  operandPointerOffset . . . . .	 00000014	 DWord
+  operandPointerSelector . . . .	 00000018	 Word
+INPUT_RECORD . . . . . . . . . .	 00000014
+  EventType  . . . . . . . . . .	 00000000	 Word
+  Event  . . . . . . . . . . . .	 00000004	 XmmWord
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+KEY_EVENT_RECORD . . . . . . . .	 00000010
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+MENU_EVENT_RECORD  . . . . . . .	 00000004
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+MOUSE_EVENT_RECORD . . . . . . .	 00000010
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+POINT  . . . . . . . . . . . . .	 00000004
+  x  . . . . . . . . . . . . . .	 00000000	 Word
+  y  . . . . . . . . . . . . . .	 00000002	 Word
+SMALL_RECT . . . . . . . . . . .	 00000008
+  Left . . . . . . . . . . . . .	 00000000	 Word
+  Top  . . . . . . . . . . . . .	 00000002	 Word
+  Right  . . . . . . . . . . . .	 00000004	 Word
+  Bottom . . . . . . . . . . . .	 00000006	 Word
+SYSTEMTIME . . . . . . . . . . .	 00000010
+  wYear  . . . . . . . . . . . .	 00000000	 Word
+  wMonth . . . . . . . . . . . .	 00000002	 Word
+  wDayOfWeek . . . . . . . . . .	 00000004	 Word
+  wDay . . . . . . . . . . . . .	 00000006	 Word
+  wHour  . . . . . . . . . . . .	 00000008	 Word
+  wMinute  . . . . . . . . . . .	 0000000A	 Word
+  wSecond  . . . . . . . . . . .	 0000000C	 Word
+  wMilliseconds  . . . . . . . .	 0000000E	 Word
+WINDOW_BUFFER_SIZE_RECORD  . . .	 00000004
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000726 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000538 Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+BottomStop . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ClearLines . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CloseFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CloseHandle  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Clrscr . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ColisionBottom . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ColisionHit  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ColisionLeft . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ColisionRight  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateFileA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateOutputFile . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Crlf . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Delay  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DeleteShape  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Delete . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DrawShape  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Draw . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpMem  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpRegs . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToDosDateTime  . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToSystemTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FlushConsoleInputBuffer  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FormatMessageA . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GameEnd  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandLineA  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandTail . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCP . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleScreenBufferInfo . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetDateTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetFileTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetKeyState  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLastError . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMaxXY . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMseconds  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetNumberOfConsoleInputEvents  .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetProcessHeap . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetStdHandle . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetSystemTime  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTickCount . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Gotoxy . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapAlloc  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapCreate . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapDestroy  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapFree . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapSize . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+InitShape  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+InitTable  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+IsDigit  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+LocalFree  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MessageBoxA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MoveDown . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MoveLeft . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MoveRight  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBoxAsk  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBox . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+OpenInputFile  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+OutOfBounds  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseDecimal32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseInteger32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+PointsToCoords . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ROTL . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadChar . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleA . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadDec  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFile . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFloat  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFromFile . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadHex  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleScreenBufferSize . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTextAttribute  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTitleA . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleWindowInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetFilePointer . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ShowFPUStack . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Sleep  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+StrLength  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_compare  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_copy . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_length . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_trim . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_ucase  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SystemTimeToFileTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Table2Graphics . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Transfer2Table . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WaitMsg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBinB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteChar  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleA  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputAttribute  . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputCharacterA . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteDec . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFloat . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHexB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHex . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteInt . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000538 Public STDCALL
+  introLabel . . . . . . . . . .	L Near	 00000036 _TEXT	
+  w1 . . . . . . . . . . . . . .	L Near	 00000070 _TEXT	
+  newGame  . . . . . . . . . . .	L Near	 0000008F _TEXT	
+  newShape . . . . . . . . . . .	L Near	 000001FD _TEXT	
+  timer  . . . . . . . . . . . .	L Near	 000002F6 _TEXT	
+  lbl  . . . . . . . . . . . . .	L Near	 0000030A _TEXT	
+  skip . . . . . . . . . . . . .	L Near	 00000322 _TEXT	
+  start  . . . . . . . . . . . .	L Near	 00000346 _TEXT	
+  waiting  . . . . . . . . . . .	L Near	 00000371 _TEXT	
+  up . . . . . . . . . . . . . .	L Near	 000003B0 _TEXT	
+  down . . . . . . . . . . . . .	L Near	 000003E5 _TEXT	
+  left . . . . . . . . . . . . .	L Near	 00000432 _TEXT	
+  right  . . . . . . . . . . . .	L Near	 00000473 _TEXT	
+  keyFound . . . . . . . . . . .	L Near	 000004B2 _TEXT	
+  NoKey  . . . . . . . . . . . .	L Near	 000004DD _TEXT	
+  kraj . . . . . . . . . . . . .	L Near	 00000500 _TEXT	
+  w2 . . . . . . . . . . . . . .	L Near	 0000051B _TEXT	
+  izl  . . . . . . . . . . . . .	L Near	 00000531 _TEXT	
+printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+ALT_MASK . . . . . . . . . . . .	Number	 00000003h   
+CAPSLOCK_ON  . . . . . . . . . .	Number	 00000080h   
+CREATE_ALWAYS  . . . . . . . . .	Number	 00000002h   
+CREATE_NEW . . . . . . . . . . .	Number	 00000001h   
+CTRL_MASK  . . . . . . . . . . .	Number	 0000000Ch   
+CreateFile . . . . . . . . . . .	Text   	 CreateFileA
+DOWN_ARROW . . . . . . . . . . .	Number	 00000050h   
+DO_NOT_SHARE . . . . . . . . . .	Number	 00000000h   
+ENABLE_ECHO_INPUT  . . . . . . .	Number	 00000004h   
+ENABLE_LINE_INPUT  . . . . . . .	Number	 00000002h   
+ENABLE_MOUSE_INPUT . . . . . . .	Number	 00000010h   
+ENABLE_PROCESSED_INPUT . . . . .	Number	 00000001h   
+ENABLE_PROCESSED_OUTPUT  . . . .	Number	 00000001h   
+ENABLE_WINDOW_INPUT  . . . . . .	Number	 00000008h   
+ENABLE_WRAP_AT_EOL_OUTPUT  . . .	Number	 00000002h   
+ENHANCED_KEY . . . . . . . . . .	Number	 00000100h   
+ENTER_KEY  . . . . . . . . . . .	Number	 0000001Ch   
+ESC_KEY  . . . . . . . . . . . .	Number	 00000001h   
+FALSE  . . . . . . . . . . . . .	Number	 00000000h   
+FILE_APPEND_DATA . . . . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_ARCHIVE . . . . .	Number	 00000020h   
+FILE_ATTRIBUTE_COMPRESSED  . . .	Number	 00000800h   
+FILE_ATTRIBUTE_DEVICE  . . . . .	Number	 00000040h   
+FILE_ATTRIBUTE_DIRECTORY . . . .	Number	 00000010h   
+FILE_ATTRIBUTE_ENCRYPTED . . . .	Number	 00004000h   
+FILE_ATTRIBUTE_HIDDEN  . . . . .	Number	 00000002h   
+FILE_ATTRIBUTE_NORMAL  . . . . .	Number	 00000080h   
+FILE_ATTRIBUTE_NOT_CONTENT_INDEXED .	Number	 00002000h   
+FILE_ATTRIBUTE_OFFLINE . . . . .	Number	 00001000h   
+FILE_ATTRIBUTE_READONLY  . . . .	Number	 00000001h   
+FILE_ATTRIBUTE_REPARSE_POINT . .	Number	 00000400h   
+FILE_ATTRIBUTE_SPARSE_FILE . . .	Number	 00000200h   
+FILE_ATTRIBUTE_SYSTEM  . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_TEMPORARY . . . .	Number	 00000100h   
+FILE_BEGIN . . . . . . . . . . .	Number	 00000000h   
+FILE_CURRENT . . . . . . . . . .	Number	 00000001h   
+FILE_DELETE_CHILD  . . . . . . .	Number	 00000040h   
+FILE_END . . . . . . . . . . . .	Number	 00000002h   
+FILE_READ_DATA . . . . . . . . .	Number	 00000001h   
+FILE_SHARE_DELETE  . . . . . . .	Number	 00000004h   
+FILE_SHARE_READ  . . . . . . . .	Number	 00000001h   
+FILE_SHARE_WRITE . . . . . . . .	Number	 00000002h   
+FILE_WRITE_DATA  . . . . . . . .	Number	 00000002h   
+FOCUS_EVENT  . . . . . . . . . .	Number	 00000010h   
+FORMAT_MESSAGE_ALLOCATE_BUFFER .	Number	 00000100h   
+FORMAT_MESSAGE_FROM_SYSTEM . . .	Number	 00001000h   
+FormatMessage  . . . . . . . . .	Text   	 FormatMessageA
+GENERIC_ALL  . . . . . . . . . .	Number	 10000000h   
+GENERIC_EXECUTE  . . . . . . . .	Number	 20000000h   
+GENERIC_READ . . . . . . . . . .	Number	 -80000000h   
+GENERIC_WRITE  . . . . . . . . .	Number	 40000000h   
+GetCommandLine . . . . . . . . .	Text   	 GetCommandLineA
+HANDLE . . . . . . . . . . . . .	Text   	 DWORD
+HEAP_GENERATE_EXCEPTIONS . . . .	Number	 00000004h   
+HEAP_GROWABLE  . . . . . . . . .	Number	 00000002h   
+HEAP_NO_SERIALIZE  . . . . . . .	Number	 00000001h   
+HEAP_REALLOC_IN_PLACE_ONLY . . .	Number	 00000010h   
+HEAP_ZERO_MEMORY . . . . . . . .	Number	 00000008h   
+IDABORT  . . . . . . . . . . . .	Number	 00000003h   
+IDCANCEL . . . . . . . . . . . .	Number	 00000002h   
+IDCLOSE  . . . . . . . . . . . .	Number	 00000008h   
+IDCONTINUE . . . . . . . . . . .	Number	 0000000Bh   
+IDHELP . . . . . . . . . . . . .	Number	 00000009h   
+IDIGNORE . . . . . . . . . . . .	Number	 00000005h   
+IDNO . . . . . . . . . . . . . .	Number	 00000007h   
+IDOK . . . . . . . . . . . . . .	Number	 00000001h   
+IDRETRY  . . . . . . . . . . . .	Number	 00000004h   
+IDTIMEOUT  . . . . . . . . . . .	Number	 00007D00h   
+IDTRYAGAIN . . . . . . . . . . .	Number	 0000000Ah   
+IDYES  . . . . . . . . . . . . .	Number	 00000006h   
+INVALID_HANDLE_VALUE . . . . . .	Number	 -00000001h   
+Ishape . . . . . . . . . . . . .	POINT	 00000465 _DATA	
+Jshape . . . . . . . . . . . . .	POINT	 000004A5 _DATA	
+KBDOWN_FLAG  . . . . . . . . . .	Number	 00000001h   
+KEY_EVENT  . . . . . . . . . . .	Number	 00000001h   
+KEY_MASKS  . . . . . . . . . . .	Number	 0000001Fh   
+LEFT_ALT_PRESSED . . . . . . . .	Number	 00000002h   
+LEFT_ARROW . . . . . . . . . . .	Number	 0000004Bh   
+LEFT_CTRL_PRESSED  . . . . . . .	Number	 00000008h   
+Lshape . . . . . . . . . . . . .	POINT	 00000495 _DATA	
+MB_ABORTRETRYIGNORE  . . . . . .	Number	 00000002h   
+MB_APPLMODAL . . . . . . . . . .	Number	 00000000h   
+MB_CANCELTRYCONTINUE . . . . . .	Number	 00000006h   
+MB_DEFBUTTON1  . . . . . . . . .	Number	 00000000h   
+MB_DEFBUTTON2  . . . . . . . . .	Number	 00000100h   
+MB_DEFBUTTON3  . . . . . . . . .	Number	 00000200h   
+MB_DEFBUTTON4  . . . . . . . . .	Number	 00000300h   
+MB_HELP  . . . . . . . . . . . .	Number	 00004000h   
+MB_ICONASTERISK  . . . . . . . .	Number	 00000040h   
+MB_ICONERROR . . . . . . . . . .	Number	 00000010h   
+MB_ICONEXCLAMATION . . . . . . .	Number	 00000030h   
+MB_ICONHAND  . . . . . . . . . .	Number	 00000010h   
+MB_ICONINFORMATION . . . . . . .	Number	 00000040h   
+MB_ICONQUESTION  . . . . . . . .	Number	 00000020h   
+MB_ICONSTOP  . . . . . . . . . .	Number	 00000010h   
+MB_ICONWARNING . . . . . . . . .	Number	 00000030h   
+MB_OKCANCEL  . . . . . . . . . .	Number	 00000001h   
+MB_OK  . . . . . . . . . . . . .	Number	 00000000h   
+MB_RETRYCANCEL . . . . . . . . .	Number	 00000005h   
+MB_SYSTEMMODAL . . . . . . . . .	Number	 00001000h   
+MB_TASKMODAL . . . . . . . . . .	Number	 00002000h   
+MB_USERICON  . . . . . . . . . .	Number	 00000080h   
+MB_YESNOCANCEL . . . . . . . . .	Number	 00000003h   
+MB_YESNO . . . . . . . . . . . .	Number	 00000004h   
+MENU_EVENT . . . . . . . . . . .	Number	 00000008h   
+MOUSE_EVENT  . . . . . . . . . .	Number	 00000002h   
+MessageBox . . . . . . . . . . .	Text   	 MessageBoxA
+NULL . . . . . . . . . . . . . .	Number	 00000000h   
+NUMLOCK_ON . . . . . . . . . . .	Number	 00000020h   
+OPEN_ALWAYS  . . . . . . . . . .	Number	 00000004h   
+OPEN_EXISTING  . . . . . . . . .	Number	 00000003h   
+Oshape . . . . . . . . . . . . .	POINT	 000004C5 _DATA	
+PeekConsoleInput . . . . . . . .	Text   	 PeekConsoleInputA
+RIGHT_ALT_PRESSED  . . . . . . .	Number	 00000001h   
+RIGHT_ARROW  . . . . . . . . . .	Number	 0000004Dh   
+RIGHT_CTRL_PRESSED . . . . . . .	Number	 00000004h   
+ReadConsoleInput . . . . . . . .	Text   	 ReadConsoleInputA
+ReadConsole  . . . . . . . . . .	Text   	 ReadConsoleA
+SCROLLLOCK_ON  . . . . . . . . .	Number	 00000040h   
+SHIFT_MASK . . . . . . . . . . .	Number	 00000010h   
+SHIFT_PRESSED  . . . . . . . . .	Number	 00000010h   
+STD_ERROR_HANDLE . . . . . . . .	Number	 -0000000Ch   
+STD_INPUT_HANDLE . . . . . . . .	Number	 -0000000Ah   
+STD_OUTPUT_HANDLE  . . . . . . .	Number	 -0000000Bh   
+SetConsoleTitle  . . . . . . . .	Text   	 SetConsoleTitleA
+Sshape . . . . . . . . . . . . .	POINT	 00000485 _DATA	
+TAB  . . . . . . . . . . . . . .	Number	 00000009h   
+TEREN_HEIGHT . . . . . . . . . .	Number	 00000016h   
+TEREN_WIDTH  . . . . . . . . . .	Number	 0000000Ah   
+TRUE . . . . . . . . . . . . . .	Number	 00000001h   
+TRUNCATE_EXISTING  . . . . . . .	Number	 00000005h   
+Tick . . . . . . . . . . . . . .	Number	 000003E8h   
+Tshape . . . . . . . . . . . . .	POINT	 000004B5 _DATA	
+UP_ARROW . . . . . . . . . . . .	Number	 00000048h   
+VK_11  . . . . . . . . . . . . .	Number	 000000BDh   
+VK_12  . . . . . . . . . . . . .	Number	 000000BBh   
+VK_ADD . . . . . . . . . . . . .	Number	 0000006Bh   
+VK_BACK  . . . . . . . . . . . .	Number	 00000008h   
+VK_CANCEL  . . . . . . . . . . .	Number	 00000003h   
+VK_CAPITAL . . . . . . . . . . .	Number	 00000014h   
+VK_CLEAR . . . . . . . . . . . .	Number	 0000000Ch   
+VK_CONTROL . . . . . . . . . . .	Number	 00000011h   
+VK_DECIMAL . . . . . . . . . . .	Number	 0000006Eh   
+VK_DELETE  . . . . . . . . . . .	Number	 0000002Eh   
+VK_DIVIDE  . . . . . . . . . . .	Number	 0000006Fh   
+VK_DOWN  . . . . . . . . . . . .	Number	 00000028h   
+VK_END . . . . . . . . . . . . .	Number	 00000023h   
+VK_ESCAPE  . . . . . . . . . . .	Number	 0000001Bh   
+VK_EXECUTE . . . . . . . . . . .	Number	 0000002Bh   
+VK_F10 . . . . . . . . . . . . .	Number	 00000079h   
+VK_F11 . . . . . . . . . . . . .	Number	 0000007Ah   
+VK_F12 . . . . . . . . . . . . .	Number	 0000007Bh   
+VK_F13 . . . . . . . . . . . . .	Number	 0000007Ch   
+VK_F14 . . . . . . . . . . . . .	Number	 0000007Dh   
+VK_F15 . . . . . . . . . . . . .	Number	 0000007Eh   
+VK_F16 . . . . . . . . . . . . .	Number	 0000007Fh   
+VK_F17 . . . . . . . . . . . . .	Number	 00000080h   
+VK_F18 . . . . . . . . . . . . .	Number	 00000081h   
+VK_F19 . . . . . . . . . . . . .	Number	 00000082h   
+VK_F1  . . . . . . . . . . . . .	Number	 00000070h   
+VK_F20 . . . . . . . . . . . . .	Number	 00000083h   
+VK_F21 . . . . . . . . . . . . .	Number	 00000084h   
+VK_F22 . . . . . . . . . . . . .	Number	 00000085h   
+VK_F23 . . . . . . . . . . . . .	Number	 00000086h   
+VK_F24 . . . . . . . . . . . . .	Number	 00000087h   
+VK_F2  . . . . . . . . . . . . .	Number	 00000071h   
+VK_F3  . . . . . . . . . . . . .	Number	 00000072h   
+VK_F4  . . . . . . . . . . . . .	Number	 00000073h   
+VK_F5  . . . . . . . . . . . . .	Number	 00000074h   
+VK_F6  . . . . . . . . . . . . .	Number	 00000075h   
+VK_F7  . . . . . . . . . . . . .	Number	 00000076h   
+VK_F8  . . . . . . . . . . . . .	Number	 00000077h   
+VK_F9  . . . . . . . . . . . . .	Number	 00000078h   
+VK_HELP  . . . . . . . . . . . .	Number	 0000002Fh   
+VK_HOME  . . . . . . . . . . . .	Number	 00000024h   
+VK_INSERT  . . . . . . . . . . .	Number	 0000002Dh   
+VK_LBUTTON . . . . . . . . . . .	Number	 00000001h   
+VK_LCONTROL  . . . . . . . . . .	Number	 000000A2h   
+VK_LEFT  . . . . . . . . . . . .	Number	 00000025h   
+VK_LMENU . . . . . . . . . . . .	Number	 000000A4h   
+VK_LSHIFT  . . . . . . . . . . .	Number	 000000A0h   
+VK_MENU  . . . . . . . . . . . .	Number	 00000012h   
+VK_MULTIPLY  . . . . . . . . . .	Number	 0000006Ah   
+VK_NEXT  . . . . . . . . . . . .	Number	 00000022h   
+VK_NUMLOCK . . . . . . . . . . .	Number	 00000090h   
+VK_NUMPAD0 . . . . . . . . . . .	Number	 00000060h   
+VK_NUMPAD1 . . . . . . . . . . .	Number	 00000061h   
+VK_NUMPAD2 . . . . . . . . . . .	Number	 00000062h   
+VK_NUMPAD3 . . . . . . . . . . .	Number	 00000063h   
+VK_NUMPAD4 . . . . . . . . . . .	Number	 00000064h   
+VK_NUMPAD5 . . . . . . . . . . .	Number	 00000065h   
+VK_NUMPAD6 . . . . . . . . . . .	Number	 00000066h   
+VK_NUMPAD7 . . . . . . . . . . .	Number	 00000067h   
+VK_NUMPAD8 . . . . . . . . . . .	Number	 00000068h   
+VK_NUMPAD9 . . . . . . . . . . .	Number	 00000069h   
+VK_PAUSE . . . . . . . . . . . .	Number	 00000013h   
+VK_PRINT . . . . . . . . . . . .	Number	 0000002Ah   
+VK_PRIOR . . . . . . . . . . . .	Number	 00000021h   
+VK_RBUTTON . . . . . . . . . . .	Number	 00000002h   
+VK_RCONTROL  . . . . . . . . . .	Number	 000000A3h   
+VK_RETURN  . . . . . . . . . . .	Number	 0000000Dh   
+VK_RIGHT . . . . . . . . . . . .	Number	 00000027h   
+VK_RMENU . . . . . . . . . . . .	Number	 000000A5h   
+VK_RSHIFT  . . . . . . . . . . .	Number	 000000A1h   
+VK_SCROLL  . . . . . . . . . . .	Number	 00000091h   
+VK_SEPARATER . . . . . . . . . .	Number	 0000006Ch   
+VK_SHIFT . . . . . . . . . . . .	Number	 00000010h   
+VK_SNAPSHOT  . . . . . . . . . .	Number	 0000002Ch   
+VK_SPACE . . . . . . . . . . . .	Number	 00000020h   
+VK_SUBTRACT  . . . . . . . . . .	Number	 0000006Dh   
+VK_TAB . . . . . . . . . . . . .	Number	 00000009h   
+VK_UP  . . . . . . . . . . . . .	Number	 00000026h   
+WINDOW_BUFFER_SIZE_EVENT . . . .	Number	 00000004h   
+WriteConsoleOutputCharacter  . .	Text   	 WriteConsoleOutputCharacterA
+WriteConsole . . . . . . . . . .	Text   	 WriteConsoleA
+Zshape . . . . . . . . . . . . .	POINT	 00000475 _DATA	
+black  . . . . . . . . . . . . .	Number	 00000000h   
+blue . . . . . . . . . . . . . .	Number	 00000001h   
+brown  . . . . . . . . . . . . .	Number	 00000006h   
+buduciK  . . . . . . . . . . . .	COORD	 00000421 _DATA	
+buduci . . . . . . . . . . . . .	Byte	 00000425 _DATA	
+cInfo  . . . . . . . . . . . . .	CONSOLE_CURSOR_INFO  00000521 _DATA	
+clear  . . . . . . . . . . . . .	Byte	 0000052D _DATA	
+consHandle . . . . . . . . . . .	DWord	 0000051D _DATA	
+cyan . . . . . . . . . . . . . .	Number	 00000003h   
+exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
+gObjBuduciX2 . . . . . . . . . .	POINT	 000004F9 _DATA	
+gObjBuduci . . . . . . . . . . .	COORD	 00000509 _DATA	
+gObjCenterB  . . . . . . . . . .	COORD	 00000519 _DATA	
+gObjCenter . . . . . . . . . . .	COORD	 000004F5 _DATA	
+gObjX2 . . . . . . . . . . . . .	POINT	 000004D5 _DATA	
+gObj . . . . . . . . . . . . . .	COORD	 000004E5 _DATA	
+gray . . . . . . . . . . . . . .	Number	 00000008h   
+green  . . . . . . . . . . . . .	Number	 00000002h   
+introK2  . . . . . . . . . . . .	COORD	 00000209 _DATA	
+introK . . . . . . . . . . . . .	COORD	 00000205 _DATA	
+intro  . . . . . . . . . . . . .	Byte	 0000020D _DATA	
+lightBlue  . . . . . . . . . . .	Number	 00000009h   
+lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
+lightGray  . . . . . . . . . . .	Number	 00000007h   
+lightGreen . . . . . . . . . . .	Number	 0000000Ah   
+lightMagenta . . . . . . . . . .	Number	 0000000Dh   
+lightRed . . . . . . . . . . . .	Number	 0000000Ch   
+magenta  . . . . . . . . . . . .	Number	 00000005h   
+pocKoord1  . . . . . . . . . . .	COORD	 000001BC _DATA	
+pocKoord . . . . . . . . . . . .	COORD	 000001B8 _DATA	
+prompt2  . . . . . . . . . . . .	Byte	 000001E4 _DATA	
+promptK2 . . . . . . . . . . . .	COORD	 00000201 _DATA	
+prompt . . . . . . . . . . . . .	Byte	 000001C0 _DATA	
+ranNum . . . . . . . . . . . . .	DWord	 00000529 _DATA	
+red  . . . . . . . . . . . . . .	Number	 00000004h   
+rez  . . . . . . . . . . . . . .	DWord	 000003BD _DATA	
+sADDR  . . . . . . . . . . . . .	Text   	 OFFSET Ishape
+scoreK1  . . . . . . . . . . . .	COORD	 000003B5 _DATA	
+scoreK2  . . . . . . . . . . . .	COORD	 000003B9 _DATA	
+score  . . . . . . . . . . . . .	Byte	 000003C1 _DATA	
+tabelaG  . . . . . . . . . . . .	Byte	 000000DC _DATA	
+tabela . . . . . . . . . . . . .	Byte	 00000000 _DATA	
+teren  . . . . . . . . . . . . .	Byte	 000002AD _DATA	
+time . . . . . . . . . . . . . .	DWord	 00000722 _DATA	
+white  . . . . . . . . . . . . .	Number	 0000000Fh   
+wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
+yellow . . . . . . . . . . . . .	Number	 0000000Eh   
+
+	   0 Warnings
+	   0 Errors
